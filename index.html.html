@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alees Mark Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Alees-Mark-converter.css linked -->
+<link rel="stylesheet" href="Alees-Mark-converter.css"></head>
+<body>
+
+<header>
+  <div class="logo-row">
+    <div class="logo-icon">A</div>
+    <h1>Alees Mark Converter</h1>
+  </div>
+  <div class="tagline">Professional Mark Conversion Tool for Teachers</div>
+</header>
+
+<div class="container">
+
+  <!-- Configuration (shared) -->
+  <div class="config-card">
+    <div class="section-title">⚙️ Conversion Setup</div>
+    <div class="config-grid">
+      <div class="field">
+        <label>Exam Max Mark (Input)</label>
+        <input type="number" id="inputMax" value="20" min="1" placeholder="e.g. 20" oninput="updatePreview()">
+        <div class="help">The max mark of the original exam</div>
+      </div>
+      <div class="field">
+        <label>Convert To (Output Max)</label>
+        <input type="number" id="outputMax" value="40" min="1" placeholder="e.g. 40" oninput="updatePreview()">
+        <div class="help">The scale to convert marks into</div>
+      </div>
+      <div class="field">
+        <label>Decimal Places</label>
+        <select id="decimals" onchange="refreshTable()">
+          <option value="0">0 — Whole numbers</option>
+          <option value="1">1 — e.g. 22.5</option>
+          <option value="2" selected="">2 — e.g. 22.50</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Grading System</label>
+        <select id="gradingSystem" onchange="refreshTable()">
+          <option value="percentage">Percentage Based</option>
+          <option value="letter">Letter Grades (A–F)</option>
+          <option value="gpa">GPA Scale (0–4)</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('single', this)">✏️ Single Entry</button>
+    <button class="tab-btn" onclick="switchTab('bulk', this)">📂 Bulk Upload</button>
+  </div>
+
+  <!-- SINGLE ENTRY TAB -->
+  <div class="tab-panel active" id="tab-single">
+    <div class="entry-card">
+      <div class="section-title">📝 Enter Student Mark</div>
+
+      <div class="student-name-row">
+        <div class="field" style="flex:1; margin:0">
+          <label>Student Name (optional)</label>
+          <input type="text" id="studentName" placeholder="e.g. Alees" autocomplete="off" onkeydown="handleNameKey(event)">
+        </div>
+      </div>
+
+      <div class="mark-entry-row">
+        <label>Mark</label>
+        <div class="mark-stepper">
+          <button class="step-btn" onclick="stepMark(1)">▲</button>
+          <button class="step-btn" onclick="stepMark(-1)">▼</button>
+        </div>
+        <input type="number" class="mark-big-input" id="markInput" placeholder="0" min="0" oninput="updatePreview()" onkeydown="handleMarkKey(event)">
+        <label id="maxLabel" style="font-size:1rem; color:var(--muted);">/ 20</label>
+      </div>
+
+      <div class="converted-preview" id="preview">
+        <div class="cv-label">Converted Mark</div>
+        <div>
+          <span class="cv-value" id="previewValue">—</span>
+          <span class="grade-badge" id="previewGrade" style="display:none"></span>
+        </div>
+        <div class="cv-fraction" id="previewFraction"></div>
+        <div style="margin-top:8px">
+          <div class="prog-bar-wrap">
+            <div class="prog-bar" id="previewProg" style="width:0%; background: linear-gradient(90deg, var(--green), var(--blue))"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addStudent()">➕ Add Student</button>
+        <button class="btn btn-outline" onclick="clearEntry()">✕ Clear</button>
+      </div>
+      <div class="help" style="margin-top:10px">💡 Press <strong>Enter</strong> to add — stepper ▲▼ increments mark by 1</div>
+    </div>
+  </div>
+
+  <!-- BULK UPLOAD TAB -->
+  <div class="tab-panel" id="tab-bulk">
+    <div class="bulk-card">
+      <div class="section-title">📋 Download Templates</div>
+      <p style="font-size:0.85rem; color:var(--muted); margin-bottom:16px;">Download a ready-made template, fill in your student marks, then upload it back.</p>
+
+      <div class="template-grid">
+        <div class="template-card" onclick="downloadTemplate('csv')">
+          <div class="template-icon">📄</div>
+          <div class="template-name">CSV Template</div>
+          <div class="template-desc">Simple comma-separated file. Opens in Excel, Google Sheets, or any text editor.</div>
+          <span class="template-badge" style="background:rgba(62,207,142,0.12);color:var(--green);border:1px solid rgba(62,207,142,0.3)">⬇ Download CSV</span>
+        </div>
+        <div class="template-card" onclick="downloadTemplate('xlsx')">
+          <div class="template-icon">📊</div>
+          <div class="template-name">Excel Template (.xlsx)</div>
+          <div class="template-desc">Formatted Excel workbook with headers, example rows, and instructions sheet.</div>
+          <span class="template-badge" style="background:rgba(91,141,238,0.12);color:var(--blue);border:1px solid rgba(91,141,238,0.3)">⬇ Download XLSX</span>
+        </div>
+      </div>
+
+      <div class="section-title">⬆️ Upload Marks File</div>
+
+      <div class="drop-zone" id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileSelect(event)">
+        <div class="drop-icon">📂</div>
+        <div class="drop-title">Drop your file here or click to browse</div>
+        <div class="drop-sub">Supports <strong>.xlsx</strong>, <strong>.xls</strong>, and <strong>.csv</strong> files</div>
+      </div>
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <!-- Column Mapping -->
+      <div class="preview-section" id="previewSection">
+        <div class="preview-header">
+          <div>
+            <div style="font-weight:600; font-size:0.95rem" id="fileNameLabel"></div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-top:2px" id="rowCountLabel"></div>
+          </div>
+          <span class="preview-badge" id="previewBadge">✓ File loaded</span>
+        </div>
+
+        <div style="font-size:0.8rem; color:var(--muted); margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px;">Map Columns</div>
+        <div class="col-map-grid">
+          <div>
+            <label>Name Column</label>
+            <select class="field input" id="colName" onchange="renderPreviewTable()" style="width:100%; background:var(--input-bg); border:1.5px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.85rem; padding:8px 10px; outline:none;"></select>
+          </div>
+          <div>
+            <label>Mark Column</label>
+            <select class="field input" id="colMark" onchange="renderPreviewTable()" style="width:100%; background:var(--input-bg); border:1.5px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.85rem; padding:8px 10px; outline:none;"></select>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom:14px">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Mark</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+
+        <div id="importStats" style="font-size:0.82rem; color:var(--muted); margin-bottom:12px;"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="importBtn" onclick="importAll()">✅ Import All Valid Rows</button>
+          <button class="btn btn-outline" onclick="clearUpload()">✕ Cancel</button>
+        </div>
+
+        <div class="import-progress" id="importProgress">
+          <div class="import-progress-label" id="importProgressLabel">Importing…</div>
+          <div class="import-prog-bar-wrap">
+            <div class="import-prog-bar" id="importProgBar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results (shared) -->
+  <div class="results-card" id="resultsSection" style="display:none">
+    <div class="section-title">📊 Results</div>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="filter-row">
+      <div class="search-wrap" style="flex:1; min-width:160px">
+        <span class="search-icon">🔍</span>
+        <input class="field input" type="text" id="searchInput" placeholder="Search student…" style="width:100%; background:var(--input-bg); border:1.5px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.88rem; padding:9px 12px 9px 34px; outline:none;" oninput="renderTable()">
+      </div>
+      <div class="field" style="margin:0">
+        <select id="sortBy" onchange="renderTable()" style="font-size:0.82rem; padding:9px 10px;">
+          <option value="entry">Entry Order</option>
+          <option value="name">Name A–Z</option>
+          <option value="mark_desc">Highest Mark</option>
+          <option value="mark_asc">Lowest Mark</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Student</th>
+            <th>Original</th>
+            <th>Converted</th>
+            <th>%</th>
+            <th>Grade</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="actions-bar">
+      <button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-outline" onclick="exportXLSX()">⬇ Export XLSX</button>
+      <button class="btn btn-outline" onclick="printResults()">🖨 Print</button>
+      <button class="btn btn-outline" onclick="copyText()">📋 Copy</button>
+      <button class="btn btn-danger" onclick="clearAll()">🗑 Clear All</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="notif" id="notif"></div>
+
+<!-- Alees-Mark-converter.js linked -->
+
+
+
+<script src="Alees-Mark-converter.js"></script></body></html>
